@@ -1,0 +1,8 @@
+{
+  "prompt": "The robot walks forward 3 steps, stops, and raises its right hand",
+  "duration": 4.0,
+  "model": "nv-tlabs/kimodo",
+  "skeleton": "Unitree G1 / SMPL-X",
+  "status": "Generated successfully",
+  "output_file": "outputs\\generated_motion.json"
+}

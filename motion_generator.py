@@ -10,24 +10,40 @@ from dotenv import load_dotenv
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
 
-load_dotenv()
+load_dotenv(override=True)
+os.environ["LOCAL_CACHE"] = "true"
+os.environ["TEXT_ENCODER_MODE"] = "local"
+
 
 class KimodoMotionGenerator:
-    def __init__(self, model_name: str = "Kimodo-SOMA-RP-v1"):
+    def __init__(self, model_name: str = "kimodo-soma-rp-v1"):
         print("[Kimodo] Yerel NVIDIA Kimodo Üretici Modülü Başlatıldı.")
-        self.model_name = model_name
+        self.model_name = model_name.lower()
         self._model = None
 
     def _get_model(self):
         if self._model is None:
             print("[Kimodo] NVIDIA Kimodo Modeli Bellek Yükleniyor...")
-            from kimodo import load_model
-            from huggingface_hub import login
-            token = os.getenv("HF_TOKEN")
-            if token:
-                login(token)
-            self._model, _ = load_model(self.model_name, return_resolved_name=True)
+            try:
+                from kimodo import load_model
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+                use_fp32 = False
+                self._model, _ = load_model(
+                    self.model_name.lower(), 
+                    device=device, 
+                    text_encoder_fp32=use_fp32, 
+                    return_resolved_name=True
+                )
+
+
+            except BaseException as e:
+                print(f"[Kimodo Model Yükleme Hatası]: {type(e)} - {e}")
+                import traceback
+                traceback.print_exc()
+                raise e
+
         return self._model
+
 
     def generate_3d_motion(self, prompt: str, duration: float = 4.0, output_dir: str = "outputs", filename_prefix: str = None):
         """
@@ -64,16 +80,28 @@ class KimodoMotionGenerator:
             from kimodo.skeleton import global_rots_to_local_rots
 
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            output = model(prompt, duration=duration, num_samples=1)
+            fps = getattr(model, "fps", 30)
+            num_frames = int(duration * fps)
+            output = model(prompt, num_frames=num_frames, num_denoising_steps=25, post_processing=False, return_numpy=True, progress_bar=lambda x: x)
+
+
+
+
             
             skeleton = model.skeleton
             if hasattr(skeleton, "somaskel77"):
                 skeleton = skeleton.somaskel77.to(device)
-                
-            joints_pos = torch.from_numpy(output["posed_joints"][0]).to(device)
-            joints_rot = torch.from_numpy(output["global_rot_mats"][0]).to(device)
+
+            joints_rot = torch.as_tensor(output["global_rot_mats"]).to(device)
+            if joints_rot.ndim == 5:
+                joints_rot = joints_rot[0]
+
+            root_positions = torch.as_tensor(output["root_positions"]).to(device)
+            if root_positions.ndim == 3:
+                root_positions = root_positions[0]
+
             local_rot_mats = global_rots_to_local_rots(joints_rot, skeleton)
-            root_positions = joints_pos[:, skeleton.root_idx, :]
+
             
             save_motion_bvh(
                 bvh_file,
