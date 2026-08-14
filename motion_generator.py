@@ -2,9 +2,9 @@ import os
 import sys
 import re
 import shutil
+from datetime import datetime
 import numpy as np
 import torch
-from datetime import datetime
 from dotenv import load_dotenv
 
 if sys.platform == "win32":
@@ -22,6 +22,7 @@ class KimodoMotionGenerator:
         self._model = None
 
     def _get_model(self):
+        """Yerel Kimodo modelini RAM'e yükler veya mevcut referansı döndürür."""
         if self._model is None:
             print("[Kimodo] NVIDIA Kimodo Modeli Bellek Yükleniyor...")
             try:
@@ -29,13 +30,11 @@ class KimodoMotionGenerator:
                 device = "cuda" if torch.cuda.is_available() else "cpu"
                 use_fp32 = False
                 self._model, _ = load_model(
-                    self.model_name.lower(), 
-                    device=device, 
-                    text_encoder_fp32=use_fp32, 
+                    self.model_name.lower(),
+                    device=device,
+                    text_encoder_fp32=use_fp32,
                     return_resolved_name=True
                 )
-
-
             except BaseException as e:
                 print(f"[Kimodo Model Yükleme Hatası]: {type(e)} - {e}")
                 import traceback
@@ -44,12 +43,11 @@ class KimodoMotionGenerator:
 
         return self._model
 
-
-    def generate_3d_motion(self, prompt: str, duration: float = 4.0, output_dir: str = "outputs", filename_prefix: str = None):
+    def generate_3d_motion(self, prompt: str, duration: float = 4.0, output_dir: str = "outputs", filename_prefix: str = None) -> str:
         """
         Llama 3.3 70B'den gelen İngilizce açıklamayı alır ve Kimodo Python API'si 
         ile gerçek 3D BVH hareket animasyonu üretir.
-        Her çalıştırmada benzersiz zaman damgalı dosya üretir.
+        Her çalıştırmada benzersiz zaman damgalı dosya ve latest_motion.bvh üretir.
         """
         abs_output_dir = os.path.abspath(output_dir)
         os.makedirs(abs_output_dir, exist_ok=True)
@@ -69,7 +67,7 @@ class KimodoMotionGenerator:
         npz_file = os.path.join(abs_output_dir, f"{stem_name}.npz")
         latest_bvh = os.path.join(abs_output_dir, "latest_motion.bvh")
         
-        print(f"\n[Kimodo Gerçek Model İnfazı Başlatılıyor...]")
+        print("\n[Kimodo Gerçek Model İnfazı Başlatılıyor...]")
         print(f" ➔ İstek Metni: '{prompt}'")
         print(f" ➔ Süre: {duration} saniye")
         print(f" ➔ Çıktı Dosyaları: outputs/{stem_name}.bvh & outputs/{stem_name}.npz")
@@ -82,12 +80,16 @@ class KimodoMotionGenerator:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             fps = getattr(model, "fps", 30)
             num_frames = int(duration * fps)
-            output = model(prompt, num_frames=num_frames, num_denoising_steps=25, post_processing=False, return_numpy=True, progress_bar=lambda x: x)
-
-
-
-
             
+            output = model(
+                prompt,
+                num_frames=num_frames,
+                num_denoising_steps=25,
+                post_processing=False,
+                return_numpy=True,
+                progress_bar=lambda x: x
+            )
+
             skeleton = model.skeleton
             if hasattr(skeleton, "somaskel77"):
                 skeleton = skeleton.somaskel77.to(device)
@@ -102,7 +104,6 @@ class KimodoMotionGenerator:
 
             local_rot_mats = global_rots_to_local_rots(joints_rot, skeleton)
 
-            
             save_motion_bvh(
                 bvh_file,
                 local_rot_mats,
@@ -126,5 +127,3 @@ class KimodoMotionGenerator:
             import traceback
             traceback.print_exc()
             return None
-
-

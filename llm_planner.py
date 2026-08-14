@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
@@ -7,7 +8,7 @@ load_dotenv()
 token = os.getenv("HF_TOKEN")
 
 if not token:
-    raise ValueError("HF_TOKEN .env dosyasında bulunamadı!")
+    raise ValueError("HF_TOKEN .env dosyasında bulunamadı! Lütfen .env dosyanızı kontrol edin.")
 
 # Hugging Face Inference Client ile Llama 3.3 70B Bağlantısı
 client = InferenceClient(api_key=token)
@@ -51,10 +52,16 @@ def generate_motion_plan_with_llama70b(user_command: str) -> dict:
     if content.startswith("json"):
         content = content[4:].strip()
         
-    return json.loads(content)
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Yanıt içinde JSON bloğunu regex ile bulmayı dene
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 if __name__ == "__main__":
-    # Hızlı test
     test_input = "Karakter masaya yürüsün ve kutuyu kaldırsın"
     print(f"Test komutu: {test_input}")
     plan = generate_motion_plan_with_llama70b(test_input)

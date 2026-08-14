@@ -5,6 +5,115 @@
   <a href="https://research.nvidia.com/labs/sil/projects/kimodo/docs/index.html"><img src="https://img.shields.io/badge/docs-online-green.svg" alt="Documentation"></a>
 </p>
 
+# 🚀 Meta Llama 3.3 70B + NVIDIA Kimodo: Hybrid 3D Motion Pipeline
+
+> **Doğal Dil (Türkçe / İngilizce) Komutlarından Saniyeler İçinde 3D Karakter Animasyonu (`.bvh`) Üretin!**
+
+Bu proje, **NVIDIA Kimodo 3D Kinematik Difüzyon Modeli** ile **Meta Llama 3.3 70B Instruct** modelini birleştiren son teknoloji bir Text-to-3D Motion boru hattıdır. Normal şartlarda 17+ GB VRAM gerektiren ağır dil modeli yükünü Hugging Face Serverless API'ye devreder, 3D iskelet hareket üretimini ise yerel bilgisayarınızda (CPU veya GPU) sadece **~35 saniyede** tamamlar.
+
+---
+
+### 📚 Dokümantasyon ve Rehberler
+- 📖 [**README_PROJECT_GUIDE.md**](README_PROJECT_GUIDE.md) $\rightarrow$ Sprint Geliştirme El Kitabı & Hızlı Başlangıç
+- 📜 [**DETAILED_PROJECT_REPORT.md**](DETAILED_PROJECT_REPORT.md) $\rightarrow$ 5 Büyük Krizin Çözümü & Kapsamlı Mühendislik Raporu
+- 📅 [**LOGBOOK.md**](LOGBOOK.md) $\rightarrow$ 24 Temmuz'dan Günümüze Tarihsel Proje Günlüğü
+
+---
+
+## 🌟 Yeni Başlayanlar İçin Hızlı Kullanım Rehberi (3 Kolay Adım)
+
+Projeyi bilgisayarınızda ilk defa açtıysanız, tek yapmanız gereken aşağıdaki 3 adımı takip etmektir:
+
+```mermaid
+flowchart LR
+    A["1️⃣ Komutunu Yaz<br/>(Türkçe / İngilizce)"] --> B["2️⃣ 35 Saniyede Üret<br/>(Llama 70B + Kimodo)"]
+    B --> C["3️⃣ Blender / Unity'de İzle<br/>(outputs/latest_motion.bvh)"]
+```
+
+### 1️⃣ Adım: Gerekli Hugging Face API Token'ını Alın ve Ayarlayın (Tek Seferlik)
+
+Bu proje, verdiğiniz Türkçe/İngilizce hareket komutlarını anlamak ve 3D parametrelere çevirmek için **Meta Llama 3.3 70B** modelini Hugging Face Serverless API üzerinden kullanır. Bu sayede bilgisayarınızda 17+ GB VRAM'e ihtiyaç duymadan sistemi ücretsiz çalıştırabilirsiniz.
+
+#### 🔑 Hugging Face Token Nasıl Alınır? (30 Saniye)
+1. [**Hugging Face (huggingface.co)**](https://huggingface.co) sitesine gidin ve ücretsiz bir hesap açın (veya giriş yapın).
+2. Sağ üstteki profil simgenize tıklayıp **Settings** $\rightarrow$ [**Access Tokens**](https://huggingface.co/settings/tokens) sayfasına gidin.
+3. **"Create new token"** (Yeni token oluştur) butonuna tıklayın:
+   - **Token Name:** `Kimodo-Motion` (veya istediğiniz bir isim)
+   - **Token Type:** `Read` (Okuma izni yeterlidir)
+4. Oluşturulan ve `hf_...` ile başlayan token'ınızı kopyalayın.
+5. *(Gerekirse)* [**meta-llama/Llama-3.3-70B-Instruct**](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct) model sayfasına gidip Meta'nın kullanıcı sözleşmesini (Accept Terms) onaylayın.
+
+#### 📝 Token'ı Projeye Ekleme:
+Proje ana klasöründeki `.env.example` dosyasını `.env` olarak kopyalayın ve içine aldığınız token'ı yapıştırın:
+
+```powershell
+# PowerShell / Terminal üzerinde:
+Copy-Item .env.example .env
+```
+
+Ardından `.env` dosyasını açıp token'ınızı kaydedin:
+```ini
+# Kimodo & Meta Llama 3.3 70B Konfigürasyonu
+HF_TOKEN=hf_kendi_aldiginiz_tokeni_buraya_yapistirin
+LOCAL_CACHE=true
+TEXT_ENCODER_MODE=local
+```
+> 🔒 **Güvenlik Notu:** `.env` dosyanız `.gitignore` ile korunmaktadır. Projeyi GitHub'a yükleseniz bile token'ınız asla dışarı sızmaz.
+
+---
+
+### 2️⃣ Adım: Animasyon Üretim Komutunu Çalıştırın
+
+Terminali (PowerShell / Command Prompt) açın ve proje klasörüne gidip istediğiniz komutu yazın:
+
+#### 🔹 Temel Hareket Üretimi:
+```powershell
+python main.py "Karakter ileri doğru yürüsün, dursun ve el sallasın"
+```
+
+#### 🔹 Karmaşık / Hikayeli Hareket Üretimi:
+```powershell
+python main.py "Robot koşarak gelsin, çit üzerinden atlasın ve eğilerek selam versin"
+```
+
+#### 🔹 Özel Süreli Hareket Üretimi (`--duration` ile saniye belirleme):
+```powershell
+python main.py "Bir kişi enerjik şekilde dans etsin ve yere düşsün" --duration 5.0
+```
+
+---
+
+### 3️⃣ Adım: Üretilen 3D Animasyonu Blender / Unity'de İzleyin
+
+Animasyon bittiğinde dosyalar otomatik olarak `outputs/` klasörüne kaydedilir:
+- **`outputs/latest_motion.bvh`**: En son ürettiğiniz animasyonun sabit dosyasıdır.
+- **`outputs/motion_YYYYMMDD_HHMMSS_*.bvh`**: Geçmiş tüm üretimlerinizin tarihli arşividir.
+
+#### 🎥 Blender'da Canlı İzleme Adımları:
+1. **Blender** programını açın.
+2. Üst menüden: **File** $\rightarrow$ **Import** $\rightarrow$ **Motion Capture (.bvh)** seçeneğine tıklayın.
+3. `C:\Users\kutay\OneDrive\Masaüstü\Kimodo\outputs\latest_motion.bvh` dosyasını seçin ve içe aktarın.
+4. Alt kısımdaki **Play (▶️)** butonuna basarak 3D iskeletin hareketini izleyin!
+
+#### 🎮 Unity / Unreal Engine Kullanımı:
+- `outputs/latest_motion.bvh` dosyasını projenize sürükleyin.
+- Karakter Rig ayarlarından **Animation Type: Humanoid** seçerek kendi 3D karakter modellerinize giydirin.
+
+---
+
+## 💡 Sıkça Sorulan Sorular (SSS & İpuçları)
+
+- **S: Animasyon çok mu hızlı veya yavaş?**  
+  👉 Komutun sonuna `--duration 5.0` veya istediğiniz saniye değerini ekleyerek animasyon süresini hassasça ayarlayabilirsiniz.
+- **S: İngilizce komut da yazabilir miyim?**  
+  👉 Evet! Sistem hem Türkçe hem İngilizce doğal dili otomatik olarak tanır ve işler.
+- **S: Her çalıştırmada 22 GB model internetten tekrar indirilir mi?**  
+  👉 Hayır. Projede çevrimdışı önbellek (`LOCAL_CACHE=true`) aktiftir; ağırlıklar diskinizden doğrudan RAM'e yüklenir, internet kotanızı harcamaz.
+- **S: Model neden bu kadar hızlı çalışıyor?**  
+  👉 Difüzyon adımları deneysel kalite kaybı olmaksızın 100 adımdan 25 adıma indirilmiştir; bu sayede CPU üzerinde dahi ~35 saniyede üretim tamamlanır.
+
+---
+
 ## Overview
 
 Kimodo is a **ki**nematic **mo**tion **d**iffusi**o**n model trained on a large-scale (700 hours) commercially-friendly optical motion capture dataset. The model generates high-quality 3D human and robot motions, and is controlled through text prompts and an extensive set of constraints such as full-body pose keyframes, end-effector positions/rotations, 2D paths, and 2D waypoints. Full details of the model architecture and training are available in the [technical report](https://research.nvidia.com/labs/sil/projects/kimodo/assets/kimodo_tech_report.pdf).

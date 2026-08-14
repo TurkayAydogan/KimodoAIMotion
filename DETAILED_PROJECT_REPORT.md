@@ -1,8 +1,9 @@
 # 📜 Kapsamlı ve Detaylı Proje Raporu: Text-to-3D Motion Pipeline
 
 **Proje Adı:** NVIDIA Kimodo + Meta Llama 3.3 70B Hybrid 3D Motion Pipeline  
-**Geliştirme Tarihi:** 24 Temmuz 2026 – 28 Temmuz 2026  
-**Toplam Kayıtlı İşlem Adımı:** 509 Adım  
+**Geliştirme Tarihi:** 24 Temmuz 2026 – 14 Ağustos 2026  
+**Toplam Kayıtlı İşlem Adımı:** 520+ Adım  
+**Bağlantılı Günlük:** [LOGBOOK.md](LOGBOOK.md) (Tarihsel Gelişim Günlüğü)  
 **Hedef:** Türkçe / İngilizce doğal dil cümlelerinden yerel ortamda yüksek kaliteli 3D Biovision Hierarchy (`.bvh`) hareket animasyonları üretmek.
 
 ---
@@ -223,7 +224,10 @@ Geliştirme sürecinde üretilen ve `outputs/` klasörüne kaydedilen hareket do
 3. **`motion_20260728_124205_...bvh`:** Enerjik dans edip ayağı takılarak yere düşme hareketi.
 4. **`motion_20260728_125050_...bvh`:** Ters takla denemesi ve kafasını çarpma hareketi.
 5. **`motion_20260728_141400_...bvh`:** Tam 5.0 saniyelik (150 kare) zıplama, yüzüstü yatma ve şınav çekme hareketi.
-6. **`outputs/latest_motion.bvh`:** En son üretilen animasyonu tutan sabit takip dosyası.
+6. **`motion_20260810_102809_...bvh`:** İleri doğru yürüme animasyonu.
+7. **`motion_20260810_103726_...bvh`:** Futbol sahasında koşma ve yön değiştirme.
+8. **`motion_20260810_140719_...bvh`:** Yürüme ve selamlama sekansı.
+9. **`outputs/latest_motion.bvh`:** En son üretilen animasyonu tutan sabit takip dosyası.
 
 ### Blender İçe Aktarım Adımları:
 1. Blender yazılımını açın.
@@ -233,7 +237,21 @@ Geliştirme sürecinde üretilen ve `outputs/` klasörüne kaydedilen hareket do
 
 ---
 
-## 🔮 BÖLÜM 6: Gelecek Geliştirme Önerileri
+## 📅 BÖLÜM 6: Kronolojik Geliştirme Günlüğü (Logbook) ve Fazlar
+
+> Tüm detaylı günlüğe [**LOGBOOK.md**](LOGBOOK.md) dosyasından ulaşabilirsiniz.
+
+| Faz | Tarih | Yapılan Temel Mühendislik İşlemleri |
+| :--- | :--- | :--- |
+| **Faz 1: Doğuş & Tasarım** | 24 - 26 Temmuz 2026 | 17+ GB VRAM engelinin analizi, Llama 3.3 70B bulut + Kimodo yerel hibrit mimari tasarımı. |
+| **Faz 2: Entegrasyon & Derleme** | 27 Temmuz 2026 | Git geçmişinden kod kurtarma, Windows MSVC C++ derleme baypası, Llama 70B JSON istemcisi. |
+| **Faz 3: Optimizasyon & Kriz Çözümü** | 28 Temmuz 2026 | Çevrimdışı 22 GB önbellek, 25 DDIM adımı (4x hızlandırma), C++ soket çökme çözümü (Pipeline v2 Pre-loading), `--duration` parametresi. |
+| **Faz 4: Saha & Çıktı Testleri** | 10 Ağustos 2026 | Koşma, yürüme, spor hareketleri BVH üretimi ve Blender kinematik rotasyon doğrulaması. |
+| **Faz 5: Cilalama & Temizlik** | 14 Ağustos 2026 | Regex JSON ayrıştırma, .gitignore genişletmesi, kod tabanı standartlaştırması ve dokümantasyon senkronizasyonu. |
+
+---
+
+## 🔮 BÖLÜM 7: Gelecek Geliştirme Önerileri (Roadmap)
 
 1. **GPU Destekli Canlı Post-Processing:** Sistem CUDA destekli bir GPU ortamına taşındığında, kapatılan `post_processing=True` seçeneği açılarak zemin ayağı kayma düzeltmeleri (foot-skate cleanup) aktif edilebilir.
 2. **Kullanıcı Arayüzü (Web UI):** Python scripti yerine Streamlit veya Vite/React tabanlı bir web arayüzü eklenerek canlı 3D canvas üzerinde `.bvh` önizlemesi sunulabilir.

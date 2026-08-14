@@ -1,6 +1,6 @@
 # 🚀 Meta Llama 3.3 70B + NVIDIA Kimodo Proje Kılavuzu ve Sprint El Kitabı
 
-Bu doküman, projede şu ana kadar yapılan tüm kurulumları, dosya yapılarını, kullanım talimatlarını ve bir sonraki sprint'te kalınan yerden hızlıca devam edebilmek için gerekli geliştirme notlarını içerir.
+Bu doküman, projede yapılan tüm kurulumları, dosya yapılarını, kullanım talimatlarını ve bir sonraki sprint'te kalınan yerden hızlıca devam edebilmek için gerekli geliştirme notlarını içerir.
 
 ---
 
@@ -9,37 +9,54 @@ Bu doküman, projede şu ana kadar yapılan tüm kurulumları, dosya yapıların
 | Parametre | Değer / Durum |
 | :--- | :--- |
 | **Proje Konumu** | `C:\Users\kutay\OneDrive\Masaüstü\Kimodo` |
-| **LLM (Beyin)** | **Meta Llama 3.3 70B Instruct** (Hugging Face Serverless Inference API) |
-| **3D Motion Engine** | **NVIDIA Kimodo (Kimodo-SOMA-RP-v1)** (Yerel İnfaz & Model Ağırlıkları 22.05 GB Önbellekte) |
-| **Hugging Face Token** | Konfigüre edildi (`.env` içinde saklı) |
-| **Erişim İzinleri** | `Meta-Llama-3-8B-Instruct` (Gated Repo) onaylandı ve aktif |
-| **Üretim Testi** | **BAŞARILI** (Tarih damgalı örn. `outputs/motion_20260727_094000_...bvh` ve kolay erişim için `outputs/latest_motion.bvh`) |
+| **LLM (Beyin / Dil Anlama)** | **Meta Llama 3.3 70B Instruct** (Hugging Face Serverless Inference API) |
+| **3D Motion Engine** | **NVIDIA Kimodo (Kimodo-SOMA-RP-v1)** (Yerel İnfaz & Model Ağırlıkları 22.05 GB Disk Önbelleğinde) |
+| **Hugging Face Token** | Konfigüre edildi (`.env` içinde `HF_TOKEN`) |
+| **Hızlandırma Optimizasyonu** | **25 DDIM Adımı** (CPU üzerinde ~4 dakikadan ~35 saniyeye 4 kat hızlandırma) |
+| **Mimari Kararlılık** | **Pipeline v2 (Pre-loading Mimarisi)** ile C++ soket kilitlenmesi %100 çözüldü |
+| **Üretim Çıktıları** | Tarih damgalı `.bvh` / `.npz` arşiv dosyaları ve hızlı erişim için `outputs/latest_motion.bvh` |
 
 ---
 
-## 🏗️ 2. Sistem Mimarisi
+## 🏗️ 2. Sistem Mimarisi (Pipeline v2)
 
 ```mermaid
 flowchart TD
-    subgraph User Interface
-        A[Türkçe Doğal Dil Komutu: 'Karakter masaya yürüsün ve bardağı alsın']
+    subgraph UI["1. Kullanıcı Arayüzü"]
+        A["Türkçe Doğal Dil Komutu: 'Robot ileri doğru 3 adım yürüsün ve el sallasın'"]
     end
 
-    subgraph Phase 1: LLM Task Planner
-        A --> B[llm_planner.py]
-        B --> C[Meta Llama 3.3 70B - Hugging Face API]
-        C --> D[İngilizce Animasyon Metni + Süre + JSON Şeması]
+    subgraph Preload["2. Bellek Ön Yükleme (Pre-loading)"]
+        B["Yerel NVIDIA Kimodo Modeli RAM'e Alınır (PyTorch CPU)"]
     end
 
-    subgraph Phase 2: 3D Kinematic Motion Engine
-        D --> E[motion_generator.py / Kimodo Generator]
-        E --> F[100 Diffusion Adımı İnfazı]
+    subgraph Phase1["3. LLM Görev Planlama"]
+        C["llm_planner.py"]
+        D["Meta Llama 3.3 70B (Hugging Face API)"]
+        E["JSON Planı (English Prompt + Duration + Action Type)"]
+        C --> D --> E
     end
 
-    subgraph Phase 3: Output & Export
-        F --> G[outputs/motion_YYYYMMDD_HHMMSS_komut.bvh]
-        F --> H[outputs/latest_motion.bvh - En Son Üretilen Animasyon]
+    subgraph Phase2["4. 3D Kinematik Motoru"]
+        F["motion_generator.py"]
+        G["LLM2Vec Metin Vektörleştirme"]
+        H["25 DDIM Denoising Diffusion Adımı (~35 sn)"]
+        I["Kinematik Rotasyon & Root Translation Hesaplama"]
+        F --> G --> H --> I
     end
+
+    subgraph Phase3["5. Çıktı ve Dışa Aktarım"]
+        J["outputs/motion_YYYYMMDD_HHMMSS_slug.bvh (Arşiv)"]
+        K["outputs/motion_YYYYMMDD_HHMMSS_slug.npz (Sayısal Dizi)"]
+        L["outputs/latest_motion.bvh (En Son Üretilen Animasyon)"]
+    end
+
+    A --> B
+    B --> C
+    E --> F
+    I --> J
+    I --> K
+    I --> L
 ```
 
 ---
@@ -48,12 +65,17 @@ flowchart TD
 
 `C:\Users\kutay\OneDrive\Masaüstü\Kimodo\`
 - **`.env`**: Hugging Face Access Token'ını (`HF_TOKEN=hf_...`) barındırır.
+- **`main.py`**: Pipeline v2 orkestratörü. Bellek ön yüklemesini, Llama 3.3 70B çağrısını ve `--duration` CLI parametrelerini yönetir.
 - **`llm_planner.py`**: Kullanıcının Türkçe komutunu Meta Llama 3.3 70B API'sine gönderip İngilizce 3D hareket planı JSON'u alan modül.
-- **`motion_generator.py`**: Llama 3.3 70B'den gelen çıktıyı NVIDIA Kimodo'nun resmi `kimodo.scripts.generate` CLI altyapısına bağlayarak `.bvh` ve `.npz` üreten modül.
-- **`main.py`**: Tüm boru hattını tek komutla çalıştıran ana orkestratör scripti.
+- **`motion_generator.py`**: `KimodoMotionGenerator` sınıfı ile 25 DDIM adımlı optimize edilmiş difüzyon işlemini yürüten, tensör boyutlarını düzenleyen ve `.bvh` formatında dışa aktaran modül.
+- **`run_kimodo_bvh.py`**: Doğrudan testler ve bağımsız çalıştırma scripti.
+- **`kimodo/`**: NVIDIA Kimodo'nun kaynak kodları (iskelet rigleri, difüzyon modelleri, kinematik fonksiyonlar ve `.bvh` dışa aktarıcılar).
 - **`outputs/`**: Üretilen 3D hareket animasyon çıktılarının kaydedildiği klasör:
-  - **`motion.bvh`**: 3D animasyon dosyası (Blender, Unity, Unreal Engine uyumlu).
-  - **`motion.npz`**: Kinematik sayısal vektör dizisi.
+  - **`latest_motion.bvh`**: En son üretilen animasyonun sabit takip dosyası (Blender veya oyun motorunda sürekli canlı izleme için).
+  - **`motion_YYYYMMDD_HHMMSS_<slug>.bvh`**: Tarih damgalı ve komut açıklamalı arşiv animasyon dosyaları.
+  - **`motion_YYYYMMDD_HHMMSS_<slug>.npz`**: Kinematik eklem matrisleri ve root koordinat verisi.
+- **`DETAILED_PROJECT_REPORT.md`**: Projenin 5 büyük krizini ve tüm mühendislik çözümlerini açıklayan detaylı rapor.
+- **`LOGBOOK.md`**: Projenin başlangıcından günümüze tarih tarih yapılan geliştirmeleri ve çıktıları içeren resmi proje günlüğü.
 - **`README_PROJECT_GUIDE.md`**: Bu doküman (Sprint El Kitabı).
 
 ---
@@ -62,35 +84,58 @@ flowchart TD
 
 Yeni bir hareket üretmek için izlenecek adımlar:
 
-### Adım 1: Terminali Açın ve Proje Klasörüne Gidin
+### Adım 1: Hugging Face Token ve `.env` Kurulumu (Tek Seferlik)
+1. [Hugging Face Access Tokens](https://huggingface.co/settings/tokens) sayfasına gidin ve ücretsiz `Read` tipinde bir token oluşturun (`hf_...`).
+2. `.env.example` dosyasını `.env` olarak kopyalayın ve token'ınızı ekleyin:
+   ```ini
+   HF_TOKEN=hf_your_token_here
+   LOCAL_CACHE=true
+   TEXT_ENCODER_MODE=local
+   ```
+*(Bu dosya `.gitignore` tarafından korunur, kesinlikle dışarı sızmaz.)*
+
+### Adım 2: Terminali Açın ve Proje Klasörüne Gidin
 ```powershell
 cd C:\Users\kutay\OneDrive\Masaüstü\Kimodo
 ```
 
-### Adım 2: İstediğiniz Türkçe Komutla Betiği Çalıştırın
-```powershell
-python main.py "Karakter zıplasın ve el sallasın"
-```
-veya
-```powershell
-python main.py "Robot koşarak gelsin, dursun ve eğilerek selam versin"
-```
+### Adım 3: İstediğiniz Türkçe Komutla Betiği Çalıştırın
 
-### Adım 3: Çıktıları İnceleyin
-İşlem bittiğinde oluşan `.bvh` dosyası `C:\Users\kutay\OneDrive\Masaüstü\Kimodo\outputs\motion.bvh` adresinde hazır olacaktır.
+- **Varsayılan Komut ile Çalıştırma:**
+  ```powershell
+  python main.py
+  ```
+
+- **Özel Türkçe Komut ile Çalıştırma:**
+  ```powershell
+  python main.py "Karakter zıplasın ve el sallasın"
+  ```
+  veya
+  ```powershell
+  python main.py "Robot koşarak gelsin, dursun ve eğilerek selam versin"
+  ```
+
+- **Özel Süre Belirterek Çalıştırma (`--duration`):**
+  ```powershell
+  python main.py "Bir kişi dans etmeye başlasın, ardından ayağı takılıp yere düşsün" --duration 5.0
+  ```
+
+### Adım 4: Çıktıları İnceleyin
+İşlem bittiğinde oluşan en son `.bvh` dosyası `outputs/latest_motion.bvh` adresinde ve tarih damgalı dosya adıyla `outputs/` dizininde hazır olacaktır.
 
 ---
 
-## 🎬 5. Üretilen 3D Animasyonu Görüntüleme (Blender / Unity)
+## 🎬 5. Üretilen 3D Animasyonu Görüntüleme (Blender / Unity / Unreal Engine)
 
 1. **Blender ile Görüntüleme**:
    - Blender'ı açın.
    - **File** $\rightarrow$ **Import** $\rightarrow$ **Motion Capture (.bvh)** seçeneğine tıklayın.
-   - `C:\Users\kutay\OneDrive\Masaüstü\Kimodo\outputs\motion.bvh` dosyasını seçin.
-   - Aşağıdaki Oynat (Play) butonuna basarak karakter hareketini izleyin.
+   - `C:\Users\kutay\OneDrive\Masaüstü\Kimodo\outputs\latest_motion.bvh` dosyasını seçin.
+   - Zaman çizelgesindeki (Timeline) **Play** butonuna basarak karakter hareketini izleyin.
 
 2. **Unity / Unreal Engine ile Görüntüleme**:
-   - `.bvh` dosyasını projenize sürükleyin veya Blender üzerinden `.fbx` olarak dışa aktarıp Rig ayarlarından *Humanoid* seçerek kendi 3D karakterinize giydirin.
+   - `latest_motion.bvh` veya ilgili `.bvh` dosyasını oyun motoru projenize sürükleyin.
+   - Blender üzerinden `.fbx` olarak dışa aktarıp Rig ayarlarından *Humanoid* seçerek kendi 3D karakter modellerinize kolayca giydirebilirsiniz.
 
 ---
 
@@ -98,6 +143,7 @@ python main.py "Robot koşarak gelsin, dursun ve eğilerek selam versin"
 
 Bir sonraki sprint başladığında ele alınabilecek geliştirme hedefleri:
 
-- [ ] **Görsel Arayüz (Web UI)**: Gradio veya Streamlit ile kullanıcıların tarayıcıdan metin girip canlı 3D animasyonu izleyebileceği bir web paneli eklemek.
-- [ ] **Otomatik FBX Dönüştürücü**: Üretilen `.bvh` dosyalarını otomatik olarak `.fbx` formatına çeviren Python betiği entegrasyonu.
-- [ ] **Çoklu İskelet Desteği**: Kimodo'nun Unitree G1 robot iskeleti checkpoint'lerini aktif ederek insansı robot simülasyon çıktısı üretmek.
+- [ ] **Görsel Web Arayüzü (Web UI)**: Gradio, Streamlit veya Vite/Three.js ile kullanıcıların tarayıcıdan metin girip canlı 3D canvas üzerinde animasyonu anında izleyebileceği bir web paneli eklemek.
+- [ ] **Otomatik FBX Dönüştürücü**: Üretilen `.bvh` dosyalarını otomatik olarak oyun motorlarına uygun `.fbx` formatına çeviren Python betiği entegrasyonu.
+- [ ] **Çoklu İskelet Desteği (Unitree G1 / SMPL-X)**: Kimodo'nun Unitree G1 robot iskeleti checkpoint'lerini aktif ederek insansı robot simülasyon çıktısı üretmek.
+- [ ] **CUDA / GPU Post-Processing**: GPU destekli ortama geçildiğinde `post_processing=True` aktif edilerek zemin kayma düzeltmelerini (foot-skate cleanup) devreye sokmak.

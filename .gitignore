@@ -7,12 +7,30 @@ __pycache__/
 build/
 dist/
 *.so
+.pytest_cache/
+.ruff_cache/
 
-# Environments
+# Scratch, Temp & Local Tests
+scratch/
+*.tmp
+*.temp
+
+# Sensitive Credentials, Tokens & Environments
 .env
+.env.local
+.env.*.local
+*.env
+!.env.example
+secrets.*
+credentials.*
+token.txt
+hf_token.txt
+
+# Virtual Environments
 venv/
 env/
 ENV/
+.venv/
 
 # OS / IDE
 .DS_Store
